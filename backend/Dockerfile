@@ -15,11 +15,22 @@ RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --no-
 COPY . .
 RUN composer dump-autoload --optimize --no-dev --no-interaction
 
+FROM composer:2 AS devtools
+
+WORKDIR /app
+
+COPY composer.json composer.lock ./
+RUN composer install --prefer-dist --no-interaction --no-progress --no-scripts
+
+COPY . .
+
 FROM php:8.3-fpm-alpine AS runtime
 
-RUN apk add --no-cache icu-libs libpq \
+RUN apk add --no-cache fcgi icu-libs libpq \
     && addgroup -S app \
     && adduser -S -G app app
+
+RUN echo 'memory_limit=128M' > /usr/local/etc/php/conf.d/zz-memory-limit.ini
 
 COPY --from=extensions /usr/local/lib/php/extensions /usr/local/lib/php/extensions
 COPY --from=extensions /usr/local/etc/php/conf.d /usr/local/etc/php/conf.d

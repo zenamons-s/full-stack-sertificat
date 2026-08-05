@@ -57,12 +57,24 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "php", "-r", "$$s=@fsockopen('127.0.0.1',9000); if ($$s) { fclose($$s); exit(0); } exit(1);"]
+      test: ["CMD-SHELL", "SCRIPT_FILENAME=/var/www/html/public/index.php SCRIPT_NAME=/index.php REQUEST_METHOD=GET REQUEST_URI=/health cgi-fcgi -bind -connect 127.0.0.1:9000 | grep -q '\"db\":\"ok\"'"]
       interval: 5s
       timeout: 3s
       retries: 10
       start_period: 5s
     restart: unless-stopped
+    logging: *default-logging
+
+  backend-dev:
+    profiles:
+      - dev
+    build:
+      context: ./backend
+      target: devtools
+    env_file:
+      - .env
+    working_dir: /app
+    command: ["vendor/bin/phpstan", "analyse", "--no-progress"]
     logging: *default-logging
 
   nginx:

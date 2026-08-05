@@ -37,7 +37,12 @@ final class SeedCommand extends Command
 
             $inserted = 0;
             foreach ($this->certificateRows($userId) as $row) {
-                if ($this->certificateExists($row['title'], $userId)) {
+                $title = $row['title'];
+                if (!is_string($title)) {
+                    throw new \RuntimeException('Seed certificate title must be a string.');
+                }
+
+                if ($this->certificateExists($title, $userId)) {
                     continue;
                 }
 
@@ -53,7 +58,7 @@ final class SeedCommand extends Command
 
     private function requiredEnv(string $name): string
     {
-        $value = $_ENV[$name] ?? getenv($name) ?: null;
+        $value = $_ENV[$name] ?? getenv($name);
         if (!is_string($value) || $value === '') {
             throw new \RuntimeException(sprintf('%s is required', $name));
         }
@@ -64,9 +69,6 @@ final class SeedCommand extends Command
     private function upsertUser(string $email, string $password): int
     {
         $hash = password_hash($password, PASSWORD_ARGON2ID);
-        if ($hash === false) {
-            throw new \RuntimeException('Unable to hash seed password.');
-        }
 
         /** @var int|string $id */
         $id = $this->connection->fetchOne(

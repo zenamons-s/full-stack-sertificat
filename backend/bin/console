@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 use App\Console\RollbackCommand;
 use App\Console\SeedCommand;
+use App\Infrastructure\Config\DatabaseUrlParser;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\Migrations\Configuration\Migration\ConfigurationArray;
 use Doctrine\Migrations\DependencyFactory;
@@ -26,20 +27,7 @@ if (!is_string($databaseUrl) || $databaseUrl === '') {
     exit(1);
 }
 
-$databaseParts = parse_url($databaseUrl);
-if ($databaseParts === false || !isset($databaseParts['host'], $databaseParts['path'])) {
-    fwrite(STDERR, "DATABASE_URL is invalid\n");
-    exit(1);
-}
-
-$connection = DriverManager::getConnection([
-    'driver' => 'pdo_pgsql',
-    'host' => $databaseParts['host'],
-    'port' => $databaseParts['port'] ?? 5432,
-    'user' => $databaseParts['user'] ?? null,
-    'password' => $databaseParts['pass'] ?? null,
-    'dbname' => ltrim($databaseParts['path'], '/'),
-]);
+$connection = DriverManager::getConnection((new DatabaseUrlParser())->parse($databaseUrl)->toDbalParams());
 $configuration = new ConfigurationArray([
     'table_storage' => [
         'table_name' => 'doctrine_migration_versions',
