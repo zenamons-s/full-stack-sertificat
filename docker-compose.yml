@@ -117,18 +117,25 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: .
+      dockerfile: frontend/Dockerfile
       target: runtime
     env_file:
       - .env
+    environment:
+      API_INTERNAL_URL: http://nginx/api/v1
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    depends_on:
+      nginx:
+        condition: service_healthy
     ports:
       - "3000:3000"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      test: ["CMD", "node", "-e", "require('node:http').get('http://127.0.0.1:3000/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 5s
       timeout: 3s
       retries: 10
-      start_period: 5s
+      start_period: 20s
     restart: unless-stopped
     logging: *default-logging
 
