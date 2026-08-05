@@ -3,13 +3,21 @@
 declare(strict_types=1);
 
 use App\Application\Auth\AuthService;
+use App\Application\Port\AuditRecorder;
+use App\Application\Port\CertificateListCache;
 use App\Application\Port\RefreshTokenDenylist;
 use App\Application\Port\TokenIssuer;
+use App\Domain\Certificate\CertificateRepository;
+use App\Domain\Clock\ClockInterface;
 use App\Domain\User\UserRepository;
 use App\Http\RequestContext;
+use App\Infrastructure\Cache\RedisCertificateListCache;
 use App\Infrastructure\Cache\RedisFactory;
 use App\Infrastructure\Cache\RedisRefreshTokenDenylist;
+use App\Infrastructure\Clock\SystemClock;
 use App\Infrastructure\Config\Settings;
+use App\Infrastructure\Persistence\DbalAuditRecorder;
+use App\Infrastructure\Persistence\DbalCertificateRepository;
 use App\Infrastructure\Persistence\DbalUserRepository;
 use App\Infrastructure\Security\FirebaseJwtTokenIssuer;
 use DI\ContainerBuilder;
@@ -37,7 +45,11 @@ return static function (Settings $settings): ContainerInterface {
         ResponseFactoryInterface::class => autowire(ResponseFactory::class),
         Connection::class => static fn (Settings $settings): Connection => DriverManager::getConnection($settings->database->toDbalParams()),
         Client::class => static fn (RedisFactory $factory): Client => $factory->create(),
+        ClockInterface::class => autowire(SystemClock::class),
         UserRepository::class => autowire(DbalUserRepository::class),
+        CertificateRepository::class => autowire(DbalCertificateRepository::class),
+        AuditRecorder::class => autowire(DbalAuditRecorder::class),
+        CertificateListCache::class => autowire(RedisCertificateListCache::class),
         TokenIssuer::class => autowire(FirebaseJwtTokenIssuer::class),
         RefreshTokenDenylist::class => autowire(RedisRefreshTokenDenylist::class),
         AuthService::class => static fn (

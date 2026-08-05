@@ -61,6 +61,10 @@ final readonly class ErrorHandler
             $payload['errors'] = $exception->errors();
         }
 
+        if ($exception instanceof ConflictException && $exception->currentState() !== null) {
+            $payload['current_state'] = $exception->currentState();
+        }
+
         if (!$this->settings->isProduction() && $status >= 500) {
             $payload['exception'] = $exception::class;
         }

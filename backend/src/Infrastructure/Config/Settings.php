@@ -17,6 +17,7 @@ final readonly class Settings
         public int $jwtAccessTtl,
         public int $jwtRefreshTtl,
         public string $logLevel,
+        public int $cacheTtl,
     ) {
     }
 
@@ -53,6 +54,7 @@ final readonly class Settings
             jwtAccessTtl: self::positiveInt($env['JWT_ACCESS_TTL'], 'JWT_ACCESS_TTL'),
             jwtRefreshTtl: self::positiveInt($env['JWT_REFRESH_TTL'], 'JWT_REFRESH_TTL'),
             logLevel: $env['LOG_LEVEL'] ?? 'info',
+            cacheTtl: self::positiveInt($env['CACHE_TTL'] ?? '60', 'CACHE_TTL'),
         );
     }
 
