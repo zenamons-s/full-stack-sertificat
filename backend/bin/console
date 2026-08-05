@@ -1,0 +1,74 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use App\Console\RollbackCommand;
+use App\Console\SeedCommand;
+use Doctrine\DBAL\DriverManager;
+use Doctrine\Migrations\Configuration\Migration\ConfigurationArray;
+use Doctrine\Migrations\DependencyFactory;
+use Doctrine\Migrations\Tools\Console\Command\MigrateCommand;
+use Doctrine\Migrations\Tools\Console\Command\StatusCommand;
+use Dotenv\Dotenv;
+use Symfony\Component\Console\Application;
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+$root = dirname(__DIR__, 2);
+if (is_file($root . '/.env')) {
+    Dotenv::createImmutable($root)->safeLoad();
+}
+
+$databaseUrl = $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL') ?: null;
+if (!is_string($databaseUrl) || $databaseUrl === '') {
+    fwrite(STDERR, "DATABASE_URL is required\n");
+    exit(1);
+}
+
+$databaseParts = parse_url($databaseUrl);
+if ($databaseParts === false || !isset($databaseParts['host'], $databaseParts['path'])) {
+    fwrite(STDERR, "DATABASE_URL is invalid\n");
+    exit(1);
+}
+
+$connection = DriverManager::getConnection([
+    'driver' => 'pdo_pgsql',
+    'host' => $databaseParts['host'],
+    'port' => $databaseParts['port'] ?? 5432,
+    'user' => $databaseParts['user'] ?? null,
+    'password' => $databaseParts['pass'] ?? null,
+    'dbname' => ltrim($databaseParts['path'], '/'),
+]);
+$configuration = new ConfigurationArray([
+    'table_storage' => [
+        'table_name' => 'doctrine_migration_versions',
+        'version_column_name' => 'version',
+        'version_column_length' => 191,
+        'executed_at_column_name' => 'executed_at',
+        'execution_time_column_name' => 'execution_time',
+    ],
+    'migrations_paths' => [
+        'App\\Migrations' => dirname(__DIR__) . '/migrations',
+    ],
+    'all_or_nothing' => true,
+    'check_database_platform' => true,
+]);
+$dependencyFactory = DependencyFactory::fromConnection(
+    $configuration,
+    new Doctrine\Migrations\Configuration\Connection\ExistingConnection($connection),
+);
+
+$application = new Application('Gift Certificates Backend Console');
+
+$migrate = new MigrateCommand($dependencyFactory);
+$migrate->setName('migrate');
+$application->add($migrate);
+
+$status = new StatusCommand($dependencyFactory);
+$status->setName('migrate:status');
+$application->add($status);
+
+$application->add(new RollbackCommand());
+$application->add(new SeedCommand($connection));
+$application->run();

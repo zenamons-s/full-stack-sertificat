@@ -38,7 +38,7 @@ services:
       target: runtime
     env_file:
       - .env
-    command: ["php", "-r", "fwrite(STDOUT, \"migrations: nothing to do\\n\");"]
+    command: ["sh", "-lc", "php bin/console migrate --no-interaction && php bin/console seed"]
     depends_on:
       postgres:
         condition: service_healthy
