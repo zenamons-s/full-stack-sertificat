@@ -47,7 +47,7 @@ async function callBackend(path: string, options: ProxyOptions, tokenOverride?: 
   const body = await backend.text();
   return {
     renewal,
-    response: new NextResponse(body, {
+    response: new NextResponse(backend.status === 204 || backend.status === 304 ? null : body, {
       status: backend.status,
       headers: { "Content-Type": backend.headers.get("Content-Type") ?? "application/json" },
     }),

@@ -14,7 +14,22 @@ type Props = {
 export default async function CertificatesPage({ searchParams }: Props) {
   const params = normalizeListParams(await searchParams);
   const query = toQueryString(params);
-  const initialData = await serverFetch<PaginatedCertificates>(`/certificates${query ? `?${query}` : ""}`, { noStore: true });
+  let initialData: PaginatedCertificates;
+  try {
+    initialData = await serverFetch<PaginatedCertificates>(`/certificates${query ? `?${query}` : ""}`, { noStore: true });
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+    return (
+      <AppShell>
+        <div className="rounded-md border border-red-200 bg-red-50 p-5 text-sm text-red-800">
+          <h1 className="text-base font-semibold">Не удалось загрузить интерфейс</h1>
+          <p className="mt-2">Проверьте соединение и попробуйте ещё раз.</p>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -23,4 +38,8 @@ export default async function CertificatesPage({ searchParams }: Props) {
       </Suspense>
     </AppShell>
   );
+}
+
+function isRedirectError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "digest" in error && String((error as { digest: unknown }).digest).startsWith("NEXT_REDIRECT");
 }
