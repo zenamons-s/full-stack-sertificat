@@ -8,5 +8,7 @@
 /frontend/src/types/api.d.ts
 .env
 .env.local
+.env.*
+!.env.example
 *.log
 .DS_Store
