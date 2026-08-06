@@ -2,7 +2,7 @@
 
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, Plus, RotateCcw, SearchX, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
@@ -10,16 +10,26 @@ import { toast } from "sonner";
 import { SecondaryButton, Select } from "@/components/ui";
 import { StatusBadge } from "@/components/status-badge";
 import { bffFetch } from "@/lib/client-api";
-import { formatDateTime } from "@/lib/format";
-import { normalizeListParams, toQueryString, type CertificateListParams } from "@/lib/list-params";
-import type { Certificate, PaginatedCertificates } from "@/lib/types";
+import { formatCertificateDate, formatDateTime, formatRelativeDateTime } from "@/lib/format";
+import { mergeListParams, normalizeListParams, toQueryString, type CertificateListParams } from "@/lib/list-params";
+import type { Certificate, CertificateStatus, PaginatedCertificates } from "@/lib/types";
 
 type Props = {
   initialData: PaginatedCertificates;
   initialParams: CertificateListParams;
+  initialStatusCounts: StatusCounts;
 };
 
-export function CertificatesClient({ initialData, initialParams }: Props) {
+type StatusCounts = Record<Extract<CertificateStatus, "active" | "expired" | "redeemed">, number>;
+type SortField = "title" | "price_minor" | "expires_at";
+
+const statusCounters: Array<{ status: keyof StatusCounts; label: string }> = [
+  { status: "active", label: "Активные" },
+  { status: "expired", label: "Истёкшие" },
+  { status: "redeemed", label: "Погашенные" },
+];
+
+export function CertificatesClient({ initialData, initialParams, initialStatusCounts }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -37,18 +47,28 @@ export function CertificatesClient({ initialData, initialParams }: Props) {
     initialData: JSON.stringify(currentParams) === JSON.stringify(initialParams) ? initialData : undefined,
     refetchInterval: 30000,
   });
+  const statusCounts = useQuery({
+    queryKey: ["certificate-status-counts"],
+    queryFn: fetchStatusCounts,
+    initialData: initialStatusCounts,
+    refetchInterval: 30000,
+  });
 
   const updateParams = useCallback((patch: Partial<CertificateListParams>) => {
-    const next = { ...currentParams, ...patch };
+    const next = mergeListParams(searchParams.entries(), patch);
     const qs = toQueryString(next);
     startTransition(() => router.replace(qs ? `${pathname}?${qs}` : pathname));
-  }, [currentParams, pathname, router, startTransition]);
+  }, [pathname, router, searchParams, startTransition]);
 
   useEffect(() => setSearchText(currentParams.search ?? ""), [currentParams.search]);
   useEffect(() => {
+    if (searchText === (currentParams.search ?? "")) {
+      return;
+    }
+
     const handle = setTimeout(() => updateParams({ search: searchText || undefined, page: 1 }), 300);
     return () => clearTimeout(handle);
-  }, [searchText, updateParams]);
+  }, [currentParams.search, searchText, updateParams]);
 
   async function remove() {
     if (!deleteTarget) return;
@@ -65,36 +85,38 @@ export function CertificatesClient({ initialData, initialParams }: Props) {
   }
 
   const data = certificates.data;
+  const hasSearch = Boolean(currentParams.search);
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col justify-between gap-3 rounded-md border bg-white p-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-xl font-semibold">Сертификаты</h1>
-          <p className="text-sm text-slate-600">Всего: {data?.meta.total ?? 0}</p>
+          <p className="mt-1 text-sm text-slate-600">Всего: {data?.meta.total ?? 0}</p>
         </div>
-        <Link className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white" href="/certificates/new"><Plus size={16} /> Создать</Link>
+        <Link className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700" href="/certificates/new"><Plus size={16} /> Создать</Link>
       </div>
 
-      <div className="grid gap-3 rounded-md border bg-white p-3 md:grid-cols-6">
+      <div className="flex flex-wrap gap-2">
+        {statusCounters.map((item) => {
+          const active = currentParams.status === item.status;
+          return (
+            <button
+              aria-pressed={active}
+              className={`rounded-md border px-3 py-2 text-sm transition-colors duration-150 ${active ? "border-blue-600 bg-blue-50 text-blue-800 hover:bg-blue-100" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+              key={item.status}
+              onClick={() => updateParams({ status: active ? undefined : item.status, page: 1 })}
+              title={active ? "Сбросить фильтр статуса" : undefined}
+              type="button"
+            >
+              {item.label} <span className="ml-1 font-semibold tabular-nums">{statusCounts.data[item.status]}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-3 rounded-md border bg-white p-3 md:grid-cols-4">
         <input className="rounded-md border px-3 py-2 text-sm md:col-span-2" placeholder="Поиск" value={searchText} onChange={(event) => setSearchText(event.target.value)} />
-        <Select value={currentParams.status ?? ""} onChange={(event) => updateParams({ status: (event.target.value || undefined) as CertificateListParams["status"], page: 1 })}>
-          <option value="">Все статусы</option>
-          <option value="active">active</option>
-          <option value="expired">expired</option>
-          <option value="redeemed">redeemed</option>
-          <option value="cancelled">cancelled</option>
-        </Select>
-        <Select value={currentParams.sort} onChange={(event) => updateParams({ sort: event.target.value as CertificateListParams["sort"], page: 1 })}>
-          <option value="-created_at">Новые сначала</option>
-          <option value="created_at">Старые сначала</option>
-          <option value="expires_at">Истекают раньше</option>
-          <option value="-expires_at">Истекают позже</option>
-          <option value="title">Название А-Я</option>
-          <option value="-title">Название Я-А</option>
-          <option value="price_minor">Цена ↑</option>
-          <option value="-price_minor">Цена ↓</option>
-        </Select>
         <Select value={currentParams.trashed} onChange={(event) => updateParams({ trashed: event.target.value as CertificateListParams["trashed"], page: 1 })}>
           <option value="none">Без удалённых</option>
           <option value="with">Показать удалённые</option>
@@ -109,25 +131,41 @@ export function CertificatesClient({ initialData, initialParams }: Props) {
 
       {certificates.isError && <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">Не удалось загрузить список.</div>}
       {certificates.isFetching && !data && <div className="rounded-md border bg-white p-6 text-sm text-slate-500">Загрузка...</div>}
-      {data && data.data.length === 0 && <div className="rounded-md border bg-white p-8 text-center text-sm text-slate-500">Ничего не найдено</div>}
 
-      {data && data.data.length > 0 && (
+      {data && (
         <div className="overflow-x-auto rounded-md border bg-white">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-              <tr><th className="px-3 py-2">Название</th><th className="px-3 py-2">Цена</th><th className="px-3 py-2">Истекает</th><th className="px-3 py-2">Статус</th><th className="px-3 py-2">Изменён</th><th className="px-3 py-2">Действия</th></tr>
+              <tr>
+                <SortableHeader currentSort={currentParams.sort} field="title" label="Название" onSort={(sort) => updateParams({ sort })} />
+                <SortableHeader align="right" currentSort={currentParams.sort} field="price_minor" label="Цена" onSort={(sort) => updateParams({ sort })} />
+                <SortableHeader currentSort={currentParams.sort} field="expires_at" label="Истекает" onSort={(sort) => updateParams({ sort })} />
+                <th className="px-3 py-2">Статус</th>
+                <th className="px-3 py-2">Изменён</th>
+                <th className="px-3 py-2">Действия</th>
+              </tr>
             </thead>
             <tbody>
-              {data.data.map((item: Certificate) => (
-                <tr className="border-t" key={item.id}>
+              {data.data.length === 0 ? (
+                <tr className="border-t">
+                  <td className="px-3 py-10 text-center" colSpan={6}>
+                    <div className="flex flex-col items-center gap-2 text-slate-500">
+                      <SearchX size={24} />
+                      <p className="font-medium text-slate-700">Ничего не найдено</p>
+                      <p className="text-sm">{hasSearch ? "По этому поисковому запросу сертификатов нет." : "Сертификатов пока нет."}</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : data.data.map((item: Certificate) => (
+                <tr className="cursor-default border-t transition-colors duration-150 hover:bg-slate-50" key={item.id}>
                   <td className="px-3 py-2 font-medium">{item.title}{item.deleted_at && <span className="ml-2 text-xs text-slate-500">удалён</span>}</td>
-                  <td className="px-3 py-2">{item.price_formatted}</td>
-                  <td className="px-3 py-2">{formatDateTime(item.expires_at)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{item.price_formatted}</td>
+                  <td className="px-3 py-2">{formatCertificateDate(item.expires_at)}</td>
                   <td className="px-3 py-2"><StatusBadge status={item.status} /></td>
-                  <td className="px-3 py-2">{formatDateTime(item.updated_at)}</td>
+                  <td className="px-3 py-2"><time dateTime={item.updated_at} title={formatDateTime(item.updated_at)}>{formatRelativeDateTime(item.updated_at)}</time></td>
                   <td className="flex gap-2 px-3 py-2">
-                    <Link className="rounded border px-2 py-1 text-xs" href={`/certificates/${item.id}/edit`}>Изменить</Link>
-                    {item.deleted_at ? <button className="rounded border px-2 py-1 text-xs" onClick={() => void restore(item)}><RotateCcw size={14} /></button> : <button className="rounded border px-2 py-1 text-xs text-red-700" onClick={() => setDeleteTarget(item)}><Trash2 size={14} /></button>}
+                    <Link className="rounded border border-slate-300 px-2 py-1 text-xs transition-colors duration-150 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800" href={`/certificates/${item.id}/edit`}>Изменить</Link>
+                    {item.deleted_at ? <button className="rounded border border-slate-300 px-2 py-1 text-xs transition-colors duration-150 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800" onClick={() => void restore(item)} title="Восстановить" type="button"><RotateCcw size={14} /></button> : <button className="rounded border border-slate-300 px-2 py-1 text-xs text-red-700 transition-colors duration-150 hover:border-red-300 hover:bg-red-50 hover:text-red-800" onClick={() => setDeleteTarget(item)} title="Удалить" type="button"><Trash2 size={14} /></button>}
                   </td>
                 </tr>
               ))}
@@ -159,4 +197,45 @@ export function CertificatesClient({ initialData, initialParams }: Props) {
       </AlertDialog.Root>
     </section>
   );
+}
+
+function SortableHeader({ align = "left", currentSort, field, label, onSort }: {
+  align?: "left" | "right";
+  currentSort: CertificateListParams["sort"];
+  field: SortField;
+  label: string;
+  onSort: (sort: CertificateListParams["sort"]) => void;
+}) {
+  const active = currentSort === field || currentSort === `-${field}`;
+  const descending = currentSort === `-${field}`;
+  const next = active && !descending ? `-${field}` : field;
+  const Icon = !active ? ChevronsUpDown : descending ? ArrowDown : ArrowUp;
+
+  return (
+    <th className={`px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`}>
+      <button
+        className={`inline-flex items-center gap-1 ${align === "right" ? "justify-end" : "justify-start"} w-full transition-colors duration-150 hover:text-slate-900`}
+        onClick={() => onSort(next as CertificateListParams["sort"])}
+        type="button"
+      >
+        <span>{label}</span>
+        <Icon size={14} />
+      </button>
+    </th>
+  );
+}
+
+async function fetchStatusCounts(): Promise<StatusCounts> {
+  const [active, expired, redeemed] = await Promise.all([
+    fetchStatusTotal("active"),
+    fetchStatusTotal("expired"),
+    fetchStatusTotal("redeemed"),
+  ]);
+
+  return { active, expired, redeemed };
+}
+
+async function fetchStatusTotal(status: keyof StatusCounts): Promise<number> {
+  const result = await bffFetch<PaginatedCertificates>(`/api/certificates?status=${status}&per_page=1`);
+  return result.meta.total;
 }

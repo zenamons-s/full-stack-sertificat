@@ -35,22 +35,14 @@ final class SeedCommand extends Command
             $userId = $this->upsertUser($seedUserEmail, $seedUserPassword);
             $this->upsertUser($workerEmail, $workerPassword);
 
+            $deleted = $this->removePreviousSeedCertificates($userId);
             $inserted = 0;
             foreach ($this->certificateRows($userId) as $row) {
-                $title = $row['title'];
-                if (!is_string($title)) {
-                    throw new \RuntimeException('Seed certificate title must be a string.');
-                }
-
-                if ($this->certificateExists($title, $userId)) {
-                    continue;
-                }
-
                 $this->connection->insert('certificates', $row);
                 $inserted++;
             }
 
-            $output->writeln(sprintf('Seed completed: users ensured, %d certificates inserted.', $inserted));
+            $output->writeln(sprintf('Seed completed: users ensured, %d certificates removed, %d certificates inserted.', $deleted, $inserted));
         });
 
         return Command::SUCCESS;
@@ -85,16 +77,26 @@ final class SeedCommand extends Command
         return (int) $id;
     }
 
-    private function certificateExists(string $title, int $createdBy): bool
+    private function removePreviousSeedCertificates(int $createdBy): int
     {
-        return (int) $this->connection->fetchOne(
-            'SELECT COUNT(*) FROM certificates WHERE title = :title AND created_by = :created_by',
-            ['title' => $title, 'created_by' => $createdBy],
-        ) > 0;
+        $deleted = $this->connection->executeStatement(
+            'DELETE FROM certificates WHERE is_seed = TRUE AND created_by = :created_by',
+            ['created_by' => $createdBy],
+        );
+        $deletedCount = (int) $deleted;
+
+        if ($deletedCount > 0) {
+            return $deletedCount;
+        }
+
+        return (int) $this->connection->executeStatement(
+            'DELETE FROM certificates WHERE created_by = :created_by',
+            ['created_by' => $createdBy],
+        );
     }
 
     /**
-     * @return iterable<array<string, int|string|null>>
+     * @return iterable<array<string, bool|int|string|null>>
      */
     private function certificateRows(int $createdBy): iterable
     {
@@ -124,9 +126,9 @@ final class SeedCommand extends Command
 
         foreach ($futureNames as $index => $title) {
             yield $this->row(
-                title: 'Демо: ' . $title,
+                title: $title,
                 priceMinor: 150000 + ($index * 27500),
-                expiresAt: $now->modify(sprintf('+%d days', 7 + ($index * 18))),
+                expiresAt: $this->naturalTime($now->modify(sprintf('+%d days', 7 + ($index * 18))), $index),
                 status: 'active',
                 createdBy: $createdBy,
                 deletedAt: null,
@@ -143,9 +145,9 @@ final class SeedCommand extends Command
         ];
         foreach ($expiredActiveNames as $index => $title) {
             yield $this->row(
-                title: 'Демо: ' . $title,
+                title: $title,
                 priceMinor: 90000 + ($index * 31000),
-                expiresAt: $now->modify(sprintf('-%d days', 1 + ($index * 3))),
+                expiresAt: $this->naturalTime($now->modify(sprintf('-%d days', 1 + ($index * 3))), 20 + $index),
                 status: 'active',
                 createdBy: $createdBy,
                 deletedAt: null,
@@ -155,9 +157,9 @@ final class SeedCommand extends Command
 
         foreach (['Погашенный сертификат на массаж', 'Погашенная карта в магазин', 'Погашенный семейный завтрак'] as $index => $title) {
             yield $this->row(
-                title: 'Демо: ' . $title,
+                title: $title,
                 priceMinor: 210000 + ($index * 45000),
-                expiresAt: $now->modify(sprintf('+%d days', 30 + ($index * 20))),
+                expiresAt: $this->naturalTime($now->modify(sprintf('+%d days', 30 + ($index * 20))), 25 + $index),
                 status: 'redeemed',
                 createdBy: $createdBy,
                 deletedAt: null,
@@ -171,9 +173,9 @@ final class SeedCommand extends Command
         ];
         foreach ($trashedRows as $index => $trashedRow) {
             yield $this->row(
-                title: 'Демо: ' . $trashedRow['title'],
+                title: $trashedRow['title'],
                 priceMinor: 180000 + ($index * 60000),
-                expiresAt: $now->modify(sprintf('+%d days', 90 + ($index * 30))),
+                expiresAt: $this->naturalTime($now->modify(sprintf('+%d days', 90 + ($index * 30))), 28 + $index),
                 status: $trashedRow['status'],
                 createdBy: $createdBy,
                 deletedAt: $this->formatUtc($now->modify(sprintf('+%d hours', 1 + $index))),
@@ -183,7 +185,7 @@ final class SeedCommand extends Command
     }
 
     /**
-     * @return array<string, int|string|null>
+     * @return array<string, bool|int|string|null>
      */
     private function row(
         string $title,
@@ -208,7 +210,19 @@ final class SeedCommand extends Command
             'created_at' => $this->formatUtc($createdAt),
             'updated_at' => $this->formatUtc($createdAt),
             'deleted_at' => $deletedAt,
+            'is_seed' => true,
         ];
+    }
+
+    private function naturalTime(DateTimeImmutable $dateTime, int $index): DateTimeImmutable
+    {
+        $hours = [9, 11, 14, 16, 18, 10, 13, 15, 17, 19];
+        $minutes = [0, 15, 30, 45, 10, 25, 40, 5, 20, 35];
+
+        return $dateTime->setTime(
+            $hours[$index % count($hours)],
+            $minutes[$index % count($minutes)],
+        );
     }
 
     private function formatUtc(DateTimeImmutable $dateTime): string
