@@ -35,22 +35,14 @@ final class SeedCommand extends Command
             $userId = $this->upsertUser($seedUserEmail, $seedUserPassword);
             $this->upsertUser($workerEmail, $workerPassword);
 
+            $deleted = $this->removePreviousSeedCertificates($userId);
             $inserted = 0;
             foreach ($this->certificateRows($userId) as $row) {
-                $title = $row['title'];
-                if (!is_string($title)) {
-                    throw new \RuntimeException('Seed certificate title must be a string.');
-                }
-
-                if ($this->certificateExists($title, $userId)) {
-                    continue;
-                }
-
                 $this->connection->insert('certificates', $row);
                 $inserted++;
             }
 
-            $output->writeln(sprintf('Seed completed: users ensured, %d certificates inserted.', $inserted));
+            $output->writeln(sprintf('Seed completed: users ensured, %d certificates removed, %d certificates inserted.', $deleted, $inserted));
         });
 
         return Command::SUCCESS;
@@ -85,16 +77,25 @@ final class SeedCommand extends Command
         return (int) $id;
     }
 
-    private function certificateExists(string $title, int $createdBy): bool
+    private function removePreviousSeedCertificates(int $createdBy): int
     {
-        return (int) $this->connection->fetchOne(
-            'SELECT COUNT(*) FROM certificates WHERE title = :title AND created_by = :created_by',
-            ['title' => $title, 'created_by' => $createdBy],
-        ) > 0;
+        $deleted = $this->connection->executeStatement(
+            'DELETE FROM certificates WHERE is_seed = TRUE AND created_by = :created_by',
+            ['created_by' => $createdBy],
+        );
+
+        if ($deleted > 0) {
+            return $deleted;
+        }
+
+        return $this->connection->executeStatement(
+            'DELETE FROM certificates WHERE created_by = :created_by',
+            ['created_by' => $createdBy],
+        );
     }
 
     /**
-     * @return iterable<array<string, int|string|null>>
+     * @return iterable<array<string, bool|int|string|null>>
      */
     private function certificateRows(int $createdBy): iterable
     {
@@ -183,7 +184,7 @@ final class SeedCommand extends Command
     }
 
     /**
-     * @return array<string, int|string|null>
+     * @return array<string, bool|int|string|null>
      */
     private function row(
         string $title,
@@ -208,6 +209,7 @@ final class SeedCommand extends Command
             'created_at' => $this->formatUtc($createdAt),
             'updated_at' => $this->formatUtc($createdAt),
             'deleted_at' => $deletedAt,
+            'is_seed' => true,
         ];
     }
 
