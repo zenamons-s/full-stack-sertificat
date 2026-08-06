@@ -22,8 +22,8 @@ final readonly class UpdateCertificateRequest
         $body = $this->reader->read($request);
         $errors = [];
 
-        if (array_key_exists('status', $body)) {
-            $errors['status'][] = 'Поле не принимается';
+        foreach (array_diff(array_keys($body), ['title', 'price_minor', 'currency', 'expires_at', 'version']) as $field) {
+            $errors[(string) $field][] = 'Поле не принимается';
         }
 
         $title = null;

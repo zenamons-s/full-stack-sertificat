@@ -27,6 +27,10 @@ final readonly class LoginAction
         $password = $body['password'] ?? null;
         $errors = [];
 
+        foreach (array_diff(array_keys($body), ['email', 'password']) as $field) {
+            $errors[(string) $field][] = 'Поле не принимается';
+        }
+
         if (!is_string($email) || trim($email) === '') {
             $errors['email'][] = 'Email обязателен';
         } elseif (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {

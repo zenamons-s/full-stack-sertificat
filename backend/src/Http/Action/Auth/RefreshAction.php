@@ -24,8 +24,18 @@ final readonly class RefreshAction
     {
         $body = $this->bodyReader->read($request);
         $refreshToken = $body['refresh_token'] ?? null;
+        $errors = [];
+
+        foreach (array_diff(array_keys($body), ['refresh_token']) as $field) {
+            $errors[(string) $field][] = 'Поле не принимается';
+        }
+
         if (!is_string($refreshToken) || $refreshToken === '') {
-            throw new ValidationException(['refresh_token' => ['Refresh-токен обязателен']]);
+            $errors['refresh_token'][] = 'Refresh-токен обязателен';
+        }
+
+        if ($errors !== []) {
+            throw new ValidationException($errors);
         }
 
         return $this->responder->json($this->auth->refresh($refreshToken));

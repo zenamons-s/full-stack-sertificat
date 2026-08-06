@@ -19,16 +19,12 @@ Full-stack платформа управления подарочными сер
 - Redis 7;
 - Docker Compose.
 
-TODO: добавить скриншот интерфейса перед отправкой проекта.
-
 ## 2. Быстрый запуск
 
-Запуск с чистого клона:
+Запуск с чистого клона одной командой:
 
 ```bash
-cp .env.example .env
-docker compose up -d --build
-docker compose ps
+cp .env.example .env && docker compose up -d --build
 ```
 
 Первый запуск может занять 1-2 минуты: собираются образы, выполняются миграции, seed и стартуют healthcheck.
@@ -65,11 +61,11 @@ Password: Password123!
 | Frontend | http://localhost:3000 |
 | Login | http://localhost:3000/login |
 | Certificates | http://localhost:3000/certificates |
+| Backend API | http://localhost:8080/api/v1 |
 | API health | http://localhost:8080/api/v1/health |
+| Swagger UI | http://localhost:8080/docs |
 | Frontend health | http://localhost:3000/api/health |
 | OpenAPI | `docs/openapi.yaml` |
-
-Swagger UI `/docs` в текущем репозитории не подключён.
 
 ## 5. Возможности
 
@@ -223,9 +219,9 @@ admin@example.com
 Password123!
 ```
 
-4. CRUD:
+4. CRUD и аудит:
 
-Проверить создание сертификата, редактирование, удаление с подтверждением, отображение удалённых и восстановление.
+Проверить создание сертификата, редактирование, удаление с подтверждением, отображение удалённых и восстановление. На странице редактирования есть блок «История изменений»: для ручных действий в нём виден `actor_type=user`.
 
 5. Работа worker:
 
@@ -259,6 +255,8 @@ docker compose exec postgres psql -U app -d certificates -c \
 
 Ожидается `5`. Повторный цикл worker должен найти 0 новых записей.
 
+После обновления страницы сертификаты с прошедшей датой отображаются как `expired`. Если открыть редактирование одного из них, в блоке «История изменений» будет запись `action=expired` и `actor_type=worker`.
+
 ## 11. Команды разработчика
 
 Backend:
@@ -267,9 +265,9 @@ Backend:
 cd backend
 composer install
 vendor/bin/phpstan analyse
+vendor/bin/phpunit
+composer audit --no-dev
 ```
-
-PHPUnit в `backend/composer.json` сейчас не установлен, поэтому `vendor/bin/phpunit` не является рабочей командой этого репозитория.
 
 Миграции и seed:
 
@@ -287,6 +285,7 @@ php bin/console seed
 docker compose run --rm migrator php bin/console migrate:status
 docker compose run --rm migrator php bin/console seed
 docker compose run --rm --build backend-dev vendor/bin/phpstan analyse --no-progress
+docker compose run --rm --build backend-dev vendor/bin/phpunit
 ```
 
 Worker:
@@ -296,6 +295,7 @@ cd worker
 go test ./...
 go test -race ./...
 go vet ./...
+golangci-lint run
 ```
 
 Frontend:
@@ -491,22 +491,17 @@ Frontend:
 
 ## 16. Известные ограничения
 
-- Swagger UI `/docs` ещё не подключён.
-- `SYNC_MODE=api` реализован, но отдельным E2E-прогоном не подтверждён.
+- `SYNC_MODE=api` реализован, но отдельным E2E-прогоном не подтверждён. Переключение режима в compose требует правки `.env` и пересоздания worker-контейнера, а не разовой shell-переменной перед командой.
 - Нет полноценной RBAC и управления пользователями.
 - Нет HTTP/UI действий `redeem` и `cancel`; статусы предусмотрены моделью.
 - Нет Playwright/E2E browser automation.
-- GitHub Actions и расширенный набор тестов относятся к следующей фазе; сейчас `.github/workflows` содержит только `.gitkeep`.
-- Backend unit/integration test directories пока являются placeholder-директориями; PHPUnit не установлен в `backend/composer.json`.
 - Frontend npm audit не зафиксирован в репозитории как пройденная проверка.
 - Демонстрационный интерфейс требует финальной UX-полировки и полной локализации статусов.
 - Проект использует один compose-файл без отдельной production orchestration.
 
 ## 17. Что бы я сделал дальше
 
-- Подключить Swagger UI.
-- Завершить CI.
-- Добавить расширенные unit, integration и E2E тесты.
+- Добавить Playwright/E2E browser automation.
 - Добавить RBAC и управление пользователями.
 - Добавить явные действия `redeem` и `cancel`.
 - Добавить observability и metrics.

@@ -84,6 +84,8 @@ paths:
                   $ref: "#/components/examples/AuthTokens"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
   /auth/me:
     get:
       operationId: getCurrentUser
@@ -360,6 +362,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
   /health:
     get:
       operationId: getHealth
@@ -569,6 +573,7 @@ components:
           type: string
           minLength: 3
           maxLength: 3
+          pattern: ^[A-Z]{3}$
           description: ISO-код валюты.
           examples: [RUB]
         price_formatted:
@@ -631,6 +636,7 @@ components:
           type: string
           minLength: 3
           maxLength: 3
+          pattern: ^[A-Z]{3}$
           default: RUB
           description: ISO-код валюты.
           examples: [RUB]
@@ -660,6 +666,7 @@ components:
           type: string
           minLength: 3
           maxLength: 3
+          pattern: ^[A-Z]{3}$
           description: Новый ISO-код валюты.
           examples: [RUB]
         expires_at:

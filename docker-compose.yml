@@ -94,6 +94,8 @@ services:
       - "8080:80"
     volumes:
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/docs:/usr/share/nginx/html/docs:ro
+      - ./docs/openapi.yaml:/usr/share/nginx/html/openapi.yaml:ro
     depends_on:
       backend:
         condition: service_healthy

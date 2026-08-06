@@ -25,7 +25,7 @@ final class JsonBodyReader
             throw new ValidationException(['body' => ['Некорректный JSON']]);
         }
 
-        if (!is_array($decoded)) {
+        if (!is_array($decoded) || (array_is_list($decoded) && trim($body) !== '{}')) {
             throw new ValidationException(['body' => ['JSON должен быть объектом']]);
         }
 
