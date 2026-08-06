@@ -45,6 +45,24 @@ export function toQueryString(params: CertificateListParams): string {
   return query.toString();
 }
 
+export function mergeListParams(
+  currentEntries: Iterable<[string, string]>,
+  patch: Partial<CertificateListParams>,
+): CertificateListParams {
+  const raw: Record<string, string | undefined> = Object.fromEntries(currentEntries);
+
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) {
+      delete raw[key];
+      continue;
+    }
+
+    raw[key] = String(value);
+  }
+
+  return normalizeListParams(raw);
+}
+
 function positiveInt(value: string | undefined, fallback: number, min: number, max: number): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < min) return fallback;

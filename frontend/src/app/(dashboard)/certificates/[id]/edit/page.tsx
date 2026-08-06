@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { AppShell } from "@/components/app-shell";
 import { CertificateForm } from "@/components/certificate-form";
 import { formatDateTime } from "@/lib/format";
 import { ApiProblemError } from "@/lib/problem-details";
@@ -26,7 +25,7 @@ export default async function EditCertificatePage({ params }: Props) {
     throw error;
   }
   return (
-    <AppShell>
+    <>
       <h1 className="mb-4 text-xl font-semibold">Редактирование</h1>
       <CertificateForm certificate={certificate} />
       <section className="mt-6 max-w-4xl rounded-md border bg-white">
@@ -60,6 +59,6 @@ export default async function EditCertificatePage({ params }: Props) {
           </div>
         )}
       </section>
-    </AppShell>
+    </>
   );
 }
