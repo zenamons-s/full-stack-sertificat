@@ -83,12 +83,13 @@ final class SeedCommand extends Command
             'DELETE FROM certificates WHERE is_seed = TRUE AND created_by = :created_by',
             ['created_by' => $createdBy],
         );
+        $deletedCount = (int) $deleted;
 
-        if ($deleted > 0) {
-            return $deleted;
+        if ($deletedCount > 0) {
+            return $deletedCount;
         }
 
-        return $this->connection->executeStatement(
+        return (int) $this->connection->executeStatement(
             'DELETE FROM certificates WHERE created_by = :created_by',
             ['created_by' => $createdBy],
         );
