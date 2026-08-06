@@ -94,7 +94,7 @@ export function CertificatesClient({ initialData, initialParams, initialStatusCo
           <h1 className="text-xl font-semibold">Сертификаты</h1>
           <p className="mt-1 text-sm text-slate-600">Всего: {data?.meta.total ?? 0}</p>
         </div>
-        <Link className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white" href="/certificates/new"><Plus size={16} /> Создать</Link>
+        <Link className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700" href="/certificates/new"><Plus size={16} /> Создать</Link>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -102,9 +102,11 @@ export function CertificatesClient({ initialData, initialParams, initialStatusCo
           const active = currentParams.status === item.status;
           return (
             <button
-              className={`rounded-md border px-3 py-2 text-sm ${active ? "border-blue-600 bg-blue-50 text-blue-800" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+              aria-pressed={active}
+              className={`rounded-md border px-3 py-2 text-sm transition-colors duration-150 ${active ? "border-blue-600 bg-blue-50 text-blue-800 hover:bg-blue-100" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
               key={item.status}
               onClick={() => updateParams({ status: active ? undefined : item.status, page: 1 })}
+              title={active ? "Сбросить фильтр статуса" : undefined}
               type="button"
             >
               {item.label} <span className="ml-1 font-semibold tabular-nums">{statusCounts.data[item.status]}</span>
@@ -113,15 +115,8 @@ export function CertificatesClient({ initialData, initialParams, initialStatusCo
         })}
       </div>
 
-      <div className="grid gap-3 rounded-md border bg-white p-3 md:grid-cols-5">
+      <div className="grid gap-3 rounded-md border bg-white p-3 md:grid-cols-4">
         <input className="rounded-md border px-3 py-2 text-sm md:col-span-2" placeholder="Поиск" value={searchText} onChange={(event) => setSearchText(event.target.value)} />
-        <Select value={currentParams.status ?? ""} onChange={(event) => updateParams({ status: (event.target.value || undefined) as CertificateListParams["status"], page: 1 })}>
-          <option value="">Все статусы</option>
-          <option value="active">active</option>
-          <option value="expired">expired</option>
-          <option value="redeemed">redeemed</option>
-          <option value="cancelled">cancelled</option>
-        </Select>
         <Select value={currentParams.trashed} onChange={(event) => updateParams({ trashed: event.target.value as CertificateListParams["trashed"], page: 1 })}>
           <option value="none">Без удалённых</option>
           <option value="with">Показать удалённые</option>
@@ -162,15 +157,15 @@ export function CertificatesClient({ initialData, initialParams, initialStatusCo
                   </td>
                 </tr>
               ) : data.data.map((item: Certificate) => (
-                <tr className="border-t" key={item.id}>
+                <tr className="cursor-default border-t transition-colors duration-150 hover:bg-slate-50" key={item.id}>
                   <td className="px-3 py-2 font-medium">{item.title}{item.deleted_at && <span className="ml-2 text-xs text-slate-500">удалён</span>}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{item.price_formatted}</td>
                   <td className="px-3 py-2">{formatCertificateDate(item.expires_at)}</td>
                   <td className="px-3 py-2"><StatusBadge status={item.status} /></td>
                   <td className="px-3 py-2"><time dateTime={item.updated_at} title={formatDateTime(item.updated_at)}>{formatRelativeDateTime(item.updated_at)}</time></td>
                   <td className="flex gap-2 px-3 py-2">
-                    <Link className="rounded border px-2 py-1 text-xs" href={`/certificates/${item.id}/edit`}>Изменить</Link>
-                    {item.deleted_at ? <button className="rounded border px-2 py-1 text-xs" onClick={() => void restore(item)} title="Восстановить" type="button"><RotateCcw size={14} /></button> : <button className="rounded border px-2 py-1 text-xs text-red-700" onClick={() => setDeleteTarget(item)} title="Удалить" type="button"><Trash2 size={14} /></button>}
+                    <Link className="rounded border border-slate-300 px-2 py-1 text-xs transition-colors duration-150 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800" href={`/certificates/${item.id}/edit`}>Изменить</Link>
+                    {item.deleted_at ? <button className="rounded border border-slate-300 px-2 py-1 text-xs transition-colors duration-150 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800" onClick={() => void restore(item)} title="Восстановить" type="button"><RotateCcw size={14} /></button> : <button className="rounded border border-slate-300 px-2 py-1 text-xs text-red-700 transition-colors duration-150 hover:border-red-300 hover:bg-red-50 hover:text-red-800" onClick={() => setDeleteTarget(item)} title="Удалить" type="button"><Trash2 size={14} /></button>}
                   </td>
                 </tr>
               ))}
@@ -219,7 +214,7 @@ function SortableHeader({ align = "left", currentSort, field, label, onSort }: {
   return (
     <th className={`px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`}>
       <button
-        className={`inline-flex items-center gap-1 ${align === "right" ? "justify-end" : "justify-start"} w-full hover:text-slate-900`}
+        className={`inline-flex items-center gap-1 ${align === "right" ? "justify-end" : "justify-start"} w-full transition-colors duration-150 hover:text-slate-900`}
         onClick={() => onSort(next as CertificateListParams["sort"])}
         type="button"
       >
