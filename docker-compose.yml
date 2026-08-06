@@ -73,8 +73,17 @@ services:
       target: devtools
     env_file:
       - .env
+    environment:
+      APP_ENV: test
+      DATABASE_URL: pgsql://app:change_me@postgres:5432/certificates_test
+      LOG_LEVEL: error
     working_dir: /app
     command: ["vendor/bin/phpstan", "analyse", "--no-progress"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     logging: *default-logging
 
   nginx:

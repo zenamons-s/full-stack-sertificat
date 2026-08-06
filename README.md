@@ -1,5 +1,7 @@
 # Gift Certificates Platform
 
+[![CI](https://github.com/zenamons-s/full-stack-sertificat/actions/workflows/ci.yml/badge.svg)](https://github.com/zenamons-s/full-stack-sertificat/actions/workflows/ci.yml)
+
 Full-stack платформа управления подарочными сертификатами.
 
 - PHP backend отвечает за API, аутентификацию и бизнес-правила сертификатов.

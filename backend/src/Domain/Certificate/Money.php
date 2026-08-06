@@ -30,4 +30,25 @@ final readonly class Money
 
         return $this->currency === 'RUB' ? $amount . ' ₽' : $amount . ' ' . $this->currency;
     }
+
+    public function add(self $other): self
+    {
+        $this->assertSameCurrency($other);
+
+        return new self($this->minor + $other->minor, $this->currency);
+    }
+
+    public function subtract(self $other): self
+    {
+        $this->assertSameCurrency($other);
+
+        return new self($this->minor - $other->minor, $this->currency);
+    }
+
+    private function assertSameCurrency(self $other): void
+    {
+        if ($this->currency !== $other->currency) {
+            throw new ValidationException(['currency' => ['Валюты должны совпадать']]);
+        }
+    }
 }

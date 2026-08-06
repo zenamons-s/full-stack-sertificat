@@ -17,4 +17,8 @@ describe("format helpers", () => {
   it("formats money from minor units", () => {
     expect(formatMoney(150000, "RUB")).toContain("1 500");
   });
+
+  it("formats valid dates for display", () => {
+    expect(formatDateTime("2027-01-01T00:00:00Z")).not.toBe("—");
+  });
 });

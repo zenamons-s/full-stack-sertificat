@@ -3,5 +3,4 @@
 .env.local
 vendor
 .phpunit.cache
-tests
 *.log

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fallbackProblem, parseProblemResponse, problemFromNetworkError } from "@/lib/problem-details";
+import { applyProblemErrors, fallbackProblem, parseProblemResponse, problemFromNetworkError } from "@/lib/problem-details";
 
 function response(body: string, status = 422, contentType = "application/problem+json") {
   return new Response(body, { status, headers: { "Content-Type": contentType } });
@@ -18,6 +18,27 @@ describe("problem-details", () => {
     })));
     expect(problem.errors?.title).toEqual(["empty"]);
     expect(problem.errors?.price_minor).toEqual(["positive"]);
+  });
+
+  it("applies problem errors to matching form fields", () => {
+    const calls: Array<{ field: string; message: string }> = [];
+
+    applyProblemErrors({
+      type: "https://api.local/problems/validation-error",
+      title: "Validation failed",
+      status: 422,
+      detail: "Request payload is invalid",
+      instance: "/api/v1/certificates",
+      request_id: "req",
+      errors: { title: ["empty"], price_minor: ["positive", "integer"] },
+    }, (field, error) => {
+      calls.push({ field, message: String(error.message) });
+    });
+
+    expect(calls).toEqual([
+      { field: "title", message: "empty" },
+      { field: "price_minor", message: "positive\ninteger" },
+    ]);
   });
 
   it("parses 409 current_state", async () => {

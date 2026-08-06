@@ -15,7 +15,14 @@ RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --no-
 COPY . .
 RUN composer dump-autoload --optimize --no-dev --no-interaction
 
-FROM composer:2 AS devtools
+FROM extensions AS devtools
+
+RUN apk add --no-cache git unzip \
+    && addgroup -S app \
+    && adduser -S -G app app \
+    && echo 'memory_limit=512M' > /usr/local/etc/php/conf.d/zz-devtools-memory-limit.ini
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 
